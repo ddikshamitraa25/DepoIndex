@@ -1,0 +1,29 @@
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+*.log
+logs/
+.idea/
+.vscode/
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# Local proprietary source
+data/*.pdf
+
+# Large generated artifacts (reproducible via pipeline)
+outputs/canonical_transcript.json
+outputs/chunks.json
+runs/*/
+*.egg-info/
+dist/
+build/

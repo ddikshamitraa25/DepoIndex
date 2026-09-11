@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DepoIndex — Persis Yu</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>DepoIndex</h1>
+      <p>Persis Yu deposition topic index with page/line provenance</p>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+  <section class="toolbar">
+    <input id="filter" placeholder="Filter topic, evidence, or source ID (e.g. P24:L1)" />
+    <input id="semantic" placeholder="Semantic search (bonus)" />
+    <button id="semanticBtn" type="button">Search</button>
+    <label><input type="checkbox" id="hideProc" checked /> Hide purely procedural topics</label>
+  </section>
+  <main>
+    <aside>
+      <div id="list"></div>
+    </aside>
+    <section class="detail" id="detail">
+      <p class="muted">Select a topic to inspect the exact source testimony.</p>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
