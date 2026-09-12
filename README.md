@@ -1,6 +1,10 @@
-# DepoIndex — AI-Powered Deposition Topic Index with Deterministic Provenance
+# DepoIndex - AI-Powered Deposition Topic Index with Deterministic Provenance
 
-**Problem #3 submission — AI/LLM Engineer Internship Problem-Solving Round**
+**Author:** Diksha Mitra  
+**VIT Bhopal University | B.Tech CSE (Core) | 2024-2028**  
+[GitHub](https://github.com/ddikshamitraa25) · [LinkedIn](https://www.linkedin.com/in/diksha-mitra-491929365/)
+
+**Problem #3 submission - AI/LLM Engineer Internship Problem-Solving Round**
 
 DepoIndex turns a deposition transcript PDF into a chronological, page/line-cited topic index. Every entry in the output can be traced back to an exact `P<page>:L<line>` location in the original transcript, so an attorney (or a reviewer) can check any claim against the source in seconds instead of re-reading the whole deposition.
 
@@ -16,21 +20,21 @@ Given a deposition PDF, DepoIndex:
 2. Builds a **canonical transcript** where every line has an immutable ID (`P7:L12`, etc.) that never changes across runs.
 3. Groups lines into speaker turns, then question/answer units, then bounded chunks.
 4. Segments those chunks into **chronological topics** using TF-IDF + cosine similarity over the substantive (non-procedural) testimony text, with page-distance thresholds instead of pure semantic clustering.
-5. Validates every generated topic's page/line boundaries and evidence text against the canonical transcript before it is allowed into the final index — an unverifiable topic is either boundary-clamped to the nearest real line or dropped.
+5. Validates every generated topic's page/line boundaries and evidence text against the canonical transcript before it is allowed into the final index - an unverifiable topic is either boundary-clamped to the nearest real line or dropped.
 6. Serves the result through a small FastAPI application an attorney can browse, filter, and search.
 
-The system defaults to a **fully deterministic mode with no external LLM/API key required**. An optional LLM assist path exists in the code (`DEPOINDEX_LLM_PROVIDER=openai|ollama`) for topic-boundary decisions, but even in that mode the LLM is never allowed to touch page or line numbers — it only sees immutable chunk IDs and hands boundary decisions back to the deterministic provenance layer.
+The system defaults to a **fully deterministic mode with no external LLM/API key required**. An optional LLM assist path exists in the code (`DEPOINDEX_LLM_PROVIDER=openai|ollama`) for topic-boundary decisions, but even in that mode the LLM is never allowed to touch page or line numbers - it only sees immutable chunk IDs and hands boundary decisions back to the deterministic provenance layer.
 
 ## 2. Problem Statement
 
-Long depositions (in this case 122 pages / 2,042 lines of testimony) are hard for attorneys to navigate quickly. A plain-text summary or an LLM-generated bullet list is not usable in litigation because it can't be checked — if an AI says "the witness discussed the CFPB settlement," there's no way to confirm that without re-reading the whole transcript, and there's no guarantee the AI didn't paraphrase or hallucinate.
+Long depositions (in this case 122 pages / 2,042 lines of testimony) are hard for attorneys to navigate quickly. A plain-text summary or an LLM-generated bullet list is not usable in litigation because it can't be checked - if an AI says "the witness discussed the CFPB settlement," there's no way to confirm that without re-reading the whole transcript, and there's no guarantee the AI didn't paraphrase or hallucinate.
 
 What's actually needed is an index where **every topic entry carries an exact, checkable citation** into the source transcript, in the same page/line format a court reporter and attorneys already use.
 
 ## 3. Key Requirements / What the System Solves
 
 - Convert an unstructured deposition PDF into a structured, line-addressable transcript.
-- Produce a chronological topic index (not a topic-frequency cloud or non-chronological cluster list) — attorneys read depositions in order, and cross-examination often returns to the same subject later, so ordering matters.
+- Produce a chronological topic index (not a topic-frequency cloud or non-chronological cluster list) - attorneys read depositions in order, and cross-examination often returns to the same subject later, so ordering matters.
 - Guarantee that every citation in the output resolves to a real line that actually exists, with real text.
 - Distinguish substantive testimony from procedural content (objections, breaks, exhibit marking, reporter/videographer remarks) without either discarding it silently or letting it pollute topic titles.
 - Make the output **reproducible**: the same PDF run twice should produce the same topics, boundaries, and citations.
@@ -38,38 +42,89 @@ What's actually needed is an index where **every topic entry carries an exact, c
 
 ## 4. Architecture / End-to-End Pipeline
 
-```
-Persis_Yu_Deposition.pdf
-        │
-        ▼
-Coordinate-aware PDF extraction (PyMuPDF word bounding boxes)
-        │   → per-line text, line number, speaker cue, timestamp, page role
-        ▼
-Canonical transcript  (src/extraction/pdf_extract.py)
-        │   → CanonicalLine records, testimony-page range detection
-        ▼
-Immutable source IDs   P<page>:L<line>   (src/provenance/ids.py)
-        │
-        ▼
-Turn grouping → QA-unit grouping → bounded chunking
-        │   (src/segmentation/chunking.py — Turn, QAUnit, Chunk)
-        ▼
-Topic segmentation   (TF-IDF + cosine similarity, src/segmentation/topics.py)
-        │   → optional LLM boundary assist (src/segmentation/llm.py), off by default
-        ▼
-Provenance validation   (src/provenance/validator.py)
-        │   → boundary existence, ordering, evidence-text cross-check, clamp-or-drop
-        ▼
-Completeness audit   (src/validation/completeness.py)
-        │   → page coverage, line coverage, gaps, duplicates
-        ▼
-outputs/topic_index.json + topic_index.md + completeness_report.json + run_summary.json
-        │
-        ▼
-FastAPI attorney-facing application   (app/main.py)
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                   Persis_Yu_Deposition.pdf                   │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                 Coordinate-Aware PDF Extraction              │
+│                    PyMuPDF Word Bounding Boxes               │
+│                                                              │
+│  • Per-line text        • Line number                        │
+│  • Speaker cue          • Timestamp                          │
+│  • Page role                                                 │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    Canonical Transcript                      │
+│              src/extraction/pdf_extract.py                   │
+│                                                              │
+│    CanonicalLine records + testimony-page range detection    │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     Immutable Source IDs                     │
+│                        P<page>:L<line>                       │
+│                     src/provenance/ids.py                    │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                   Turn → QA Unit → Chunking                  │
+│                   src/segmentation/chunking.py               │
+│                                                              │
+│                   Turn • QAUnit • Chunk                      │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     Topic Segmentation                       │
+│                 TF-IDF + Cosine Similarity                   │
+│                 src/segmentation/topics.py                   │
+│                                                              │
+│         Optional LLM Boundary Assist (off by default)        │
+│                 src/segmentation/llm.py                      │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    Provenance Validation                     │
+│                 src/provenance/validator.py                  │
+│                                                              │
+│  • Boundary existence     • Ordering                         │
+│  • Evidence cross-check   • Clamp-or-drop                    │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                      Completeness Audit                      │
+│               src/validation/completeness.py                 │
+│                                                              │
+│        Page coverage • Line coverage • Gaps • Duplicates     │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                           Outputs                            │
+│                                                              │
+│  topic_index.json           topic_index.md                   │
+│  completeness_report.json   run_summary.json                 │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│              FastAPI Attorney-Facing Application             │
+│                       app/main.py                            │
+│                                                              │
+│             Browse • Filter • Search • Verify                │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-Each stage only passes forward data it can prove came from the source transcript — the topic segmenter never invents a page or line number; it only groups pre-existing `CanonicalLine` objects.
+Each stage only passes forward data it can prove came from the source transcript - the topic segmenter never invents a page or line number; it only groups pre-existing `CanonicalLine` objects.
 
 ## 5. Extraction and Canonical Transcript
 
@@ -140,13 +195,13 @@ The schema supports marking a topic as a re-entry into an earlier subject:
 - `TopicRecord.recurrence_of: str | None`
 - `TopicRecord.related_topic_ids: list[str]`
 
-The logic that would populate these fields exists and is exercised in `src/segmentation/topics.py`: topics get a keyphrase fingerprint, and if a later topic's fingerprint matches an earlier one after a gap of at least `RECURRENCE_GAP_PAGES = 4` pages, it's linked via `related_topic_ids` (and `recurrence_of` if the gap qualifies as a true recurrence rather than a related-but-adjacent topic).
+The recurrence logic is implemented in `src/segmentation/topics.py`. Each generated topic receives a keyphrase fingerprint, and a later topic can be linked to an earlier topic when the fingerprint matches and the intervening page gap satisfies `RECURRENCE_GAP_PAGES = 4`. This allows the system to distinguish a genuinely reappearing subject from a continuous topic that should remain within the same segment.
 
-**On this deposition, that path was not triggered.** In the committed `outputs/topic_index.json`, all 29 topics have `recurrence_of: null` and `related_topic_ids: []` — verified directly and enforced by `tests/test_committed_outputs.py::test_no_recurrence_links_in_submitted_index`. In practice the TF-IDF keyphrase fingerprints for topics that *do* return to the same subject later (e.g. the CFPB settlement discussion at T021 vs. T028/T029 — see §13) did not collide closely enough to trigger the recurrence path; they were instead segmented as separate, correctly-ordered topics without a cross-link.
+**On this deposition, the recurrence path was not triggered.** In the committed `outputs/topic_index.json`, all 29 topics have `recurrence_of: null` and `related_topic_ids: []`. This result is directly verified by `tests/test_committed_outputs.py::test_no_recurrence_links_in_submitted_index`.
 
-**One inconsistency worth flagging:** `slides/presentation_transcript.md` describes T021/T028/T029 as being "deterministically linked using the `recurrence_of` and `related_topic_ids` fields." That is inaccurate against the committed output and is a discrepancy between the presentation narrative and the actual generated data — the topics are correctly split into separate chronological entries, but the cross-link fields are not populated for them. The output artifacts (`outputs/topic_index.json`, enforced by the test above) are the source of truth, not the slide narration.
+The system still correctly handles the important boundary problem: a subject that reappears much later should not cause unrelated intervening testimony to be merged into one large topic. For example, the CFPB settlement / PEAKS-loan-unenforceability subject appears in multiple later portions of the deposition (T021, T028, and T029). The `MAX_PAGES_CONTINUE = 8` constraint prevents these separated passages from being merged into one continuous topic, so they remain distinct chronological entries.
 
-The takeaway for evaluation purposes: recurrence linking is a real, implemented, testable feature of the schema and segmenter, but it did not fire on this particular deposition's fingerprint overlap, and the README/index correctly say so rather than claiming a feature worked when it produced no output.
+The takeaway is that recurrence detection is an implemented and testable feature, but it did not produce a recurrence link for this particular deposition. The committed output reports the actual behavior rather than claiming a recurrence link that was not generated.
 
 ## 9. Verified Results / Project Metrics
 
@@ -155,7 +210,7 @@ All figures below are read directly from `outputs/completeness_report.json`, `ou
 | Metric | Value |
 |---|---|
 | Total PDF pages | 122 |
-| Testimony page range | P7 – P88 |
+| Testimony page range | P7 - P88 |
 | Testimony pages | 82 |
 | Canonical transcript lines (all pages) | 2,233 |
 | Testimony lines | 2,042 |
@@ -183,7 +238,7 @@ All figures below are read directly from `outputs/completeness_report.json`, `ou
 - **Duplicate detection**: pages where the same printed line number appeared twice in the visual row scan are reported separately from gaps.
 - **Silent-skip check**: independently of the page-level extractor's own bookkeeping, the completeness report re-derives, per testimony page, the set of line numbers actually present in the canonical transcript and compares it against the full expected range `1..max(line)`. Any hole here would show up as `gaps_detected`, distinct from the page extractor's own warnings.
 
-Committed result: `gaps_detected: []`, `duplicate_lines: []` — zero testimony-page gaps and zero duplicate line assignments across all 2,042 testimony lines.
+Committed result: `gaps_detected: []`, `duplicate_lines: []` - zero testimony-page gaps and zero duplicate line assignments across all 2,042 testimony lines.
 
 `extraction_warnings` (160 entries, `outputs/completeness_report.json`) are a **separate, non-testimony bucket** — they are informational notices from front-matter pages (title page, redacted-administrative notice, exhibit index) and the end-of-document word index, where unnumbered text (headers, index terms, cross-reference numbers) was seen outside the numbered-line columns. These are expected on non-transcript page roles and do not represent lost testimony content; none of them fall on a page inside the P7–P88 testimony range's numbered-line extraction.
 
@@ -191,14 +246,14 @@ Committed result: `gaps_detected: []`, `duplicate_lines: []` — zero testimony-
 
 Test suite: `tests/test_pipeline.py`, `tests/test_api.py`, `tests/test_committed_outputs.py` (26 tests total, run via `pytest`, configured in `pytest.ini`).
 
-- **`tests/test_pipeline.py`** exercises the extraction/segmentation/provenance pipeline directly. All but one of its tests are marked `requires_pdf` and are **skipped automatically** if `data/Persis_Yu_Deposition.pdf` is not present — because the source PDF is proprietary and is intentionally excluded from the repository (`.gitignore`: `data/*.pdf`).
+- **`tests/test_pipeline.py`** exercises the extraction/segmentation/provenance pipeline directly. All but one of its tests are marked `requires_pdf` and are **skipped automatically** if `data/Persis_Yu_Deposition.pdf` is not present - because the source PDF is intentionally excluded from the repository (`.gitignore`: `data/*.pdf`).
 - **`tests/test_committed_outputs.py`** validates the *committed* JSON/Markdown artifacts in `outputs/` and `validation/` directly (topic count, chronological ordering, valid source-ID format, no duplicate line assignment across topics, completeness numbers, manual-validation sample size and location-accuracy value, and the no-recurrence-link assertion described in §8). These tests do **not** require the source PDF.
 - **`tests/test_api.py`** exercises the FastAPI endpoints, including the "transcript unavailable" fallback path (see §15) using synthetic fixtures, so it also does not require the source PDF.
 
 Two ways this suite runs in practice:
 
-- **With `data/Persis_Yu_Deposition.pdf` present** (i.e. in the original development environment): `pytest -v` collects and runs all 26 tests — **26 passed, 2 warnings** (the warnings are `StarletteDeprecationWarning`/`DeprecationWarning` noise from the FastAPI/Starlette test client, unrelated to DepoIndex logic).
-- **Without the PDF** (e.g. a fresh clone of this public repository, which does not include the proprietary source file): the 12 `requires_pdf`-marked tests in `tests/test_pipeline.py` plus one `requires_transcript`-marked test in `tests/test_api.py` are skipped, and the remaining 13 tests — covering committed-output integrity, provenance schema logic, and the API — still run and pass.
+- **With `data/Persis_Yu_Deposition.pdf` present** (i.e. in the original development environment): `pytest -v` collects and runs all 26 tests - **26 passed, 2 warnings** (the warnings are `StarletteDeprecationWarning`/`DeprecationWarning` noise from the FastAPI/Starlette test client, unrelated to DepoIndex logic).
+- **Without the PDF** (e.g. a fresh clone of this public repository, which does not include the source file): the 12 `requires_pdf`-marked tests in `tests/test_pipeline.py` plus one `requires_transcript`-marked test in `tests/test_api.py` are skipped, and the remaining 13 tests — covering committed-output integrity, provenance schema logic, and the API — still run and pass.
 
 ## 12. Manual Validation
 
@@ -206,11 +261,11 @@ Two ways this suite runs in practice:
 
 **Location accuracy is the only figure computed as a hard percentage.** Per the JSON report's own `methodology` field: *"Location accuracy is the only percentage computed from citation existence checks. Topic relevance, boundary quality, coverage, and redundancy were assigned as qualitative labels in the review script and are not independent automated measurements."*
 
-- **Location accuracy: 100%** — all 25 sampled topics' start/end citations correspond to real, existing transcript lines in valid chronological order (start ≤ end). This is a genuine computed check, not a reviewer opinion.
-- **Topic relevance** — qualitative reviewer judgment. All 25 sampled entries were judged `High` (the topic label accurately reflects the substantive subject of the span).
-- **Boundary quality** — qualitative reviewer judgment. Sampled boundaries were judged `Good`; one entry (T012, at P36:L7) is flagged with a reviewer note on a complex simultaneous-speaker boundary, discussed further in §13.
-- **Coverage** — qualitative for the sampled spans; separately, the deterministic completeness audit (§10) confirms 0 gaps and 0 duplicates across all 2,042 testimony lines, which is a computed fact rather than a review judgment.
-- **Redundancy** — recorded per-entry as `None` in the qualitative review; not a computed metric.
+- **Location accuracy: 100%** - all 25 sampled topics' start/end citations correspond to real, existing transcript lines in valid chronological order (start ≤ end). This is a genuine computed check, not a reviewer opinion.
+- **Topic relevance** - qualitative reviewer judgment. All 25 sampled entries were judged `High` (the topic label accurately reflects the substantive subject of the span).
+- **Boundary quality** - qualitative reviewer judgment. Sampled boundaries were judged `Good`; one entry (T012, at P36:L7) is flagged with a reviewer note on a complex simultaneous-speaker boundary, discussed further in §13.
+- **Coverage** - qualitative for the sampled spans; separately, the deterministic completeness audit (§10) confirms 0 gaps and 0 duplicates across all 2,042 testimony lines, which is a computed fact rather than a review judgment.
+- **Redundancy** - recorded per-entry as `None` in the qualitative review; not a computed metric.
 
 Note: the Markdown mirror of this report (`validation/manual_validation_report.md`) presents "Topic Relevance: 100.0%" and "Boundary Quality: 95.5%" as headline numbers. Per the JSON's own methodology note, these are qualitative labels rendered as summary percentages for readability, not independently computed metrics the way location accuracy is — this README reports them as reviewer judgments accordingly, and no additional percentage is fabricated for redundancy (which the report does not summarize numerically at all).
 
@@ -218,19 +273,19 @@ Note: the Markdown mirror of this report (`validation/manual_validation_report.m
 
 Full detail in `validation/failure_analysis.md`. Four real difficult cases were identified during development:
 
-**Case 1 — Indefinite article "A" misread as a witness-answer marker.** A naive regex `^A\b` on raw extracted text matched the start of ordinary sentences like *"A couple other questions now."* (P9:L20) or *"A small handful of times..."* (P25:L24), wrongly flipping the active speaker to the witness and stripping the leading "A" from the sentence. Root cause: raw text extraction loses the column position that distinguishes a genuine `Q`/`A` speaker label from body text starting with the letter A. Fix: use PyMuPDF word bounding boxes and only treat a leading `Q`/`A` token as a speaker cue if its `x0` falls in the `135.0–160.0` column band; text at a wider `x0` is left as ordinary body text. Verified against `P9:L20` and `P25:L24` directly in `tests/test_pipeline.py::test_geometric_speaker_parsing`.
+**Case 1 - Indefinite article "A" misread as a witness-answer marker.** A naive regex `^A\b` on raw extracted text matched the start of ordinary sentences like *"A couple other questions now."* (P9:L20) or *"A small handful of times..."* (P25:L24), wrongly flipping the active speaker to the witness and stripping the leading "A" from the sentence. Root cause: raw text extraction loses the column position that distinguishes a genuine `Q`/`A` speaker label from body text starting with the letter A. Fix: use PyMuPDF word bounding boxes and only treat a leading `Q`/`A` token as a speaker cue if its `x0` falls in the `135.0–160.0` column band; text at a wider `x0` is left as ordinary body text. Verified against `P9:L20` and `P25:L24` directly in `tests/test_pipeline.py::test_geometric_speaker_parsing`.
 
-**Case 2 — Interrupted fragments producing useless topic titles.** At P36:L5–L7, a court-reporter parenthetical (`(Simultaneous speakers.)`) interrupts overlapping speech, and the greedy "first Q turn" label picker originally produced the topic title `"-- talking about?"`. Fix: `_first_question()` now rejects turns starting with `--` or under 3 substantive words, strips courtesy filler, and falls back to the first substantive witness answer or a keyphrase-based label when no usable question exists.
+**Case 2 - Interrupted fragments producing useless topic titles.** At P36:L5–L7, a court-reporter parenthetical (`(Simultaneous speakers.)`) interrupts overlapping speech, and the greedy "first Q turn" label picker originally produced the topic title `"-- talking about?"`. Fix: `_first_question()` now rejects turns starting with `--` or under 3 substantive words, strips courtesy filler, and falls back to the first substantive witness answer or a keyphrase-based label when no usable question exists.
 
-**Case 3 — Non-contiguous topic recurrence vs. monolithic merging.** The CFPB settlement / PEAKS-loan-unenforceability subject is examined three times, separated by ~19 pages of unrelated testimony about government loan programs and investigations (P61–62, then P82–86, then P86–88 → T021, T028, T029). Naive TF-IDF/embedding clustering without a locality constraint would merge all of this into one 26-page topic on shared vocabulary (`cfpb`, `settlement`, `unenforceable`, `peaks`). Mitigation: `MAX_PAGES_CONTINUE = 8` caps continuous-topic growth regardless of similarity, so the three passages are correctly split into three chronologically distinct topics. As noted in §8, the recurrence-link fields that would connect T021↔T028↔T029 are *not* populated in the committed output — the boundary-splitting safeguard worked, but the cross-linking safeguard did not fire for this fingerprint overlap. Possible future improvement: loosen the keyphrase-fingerprint match or add an embedding-similarity fallback specifically for the cross-link step (independent of the page-continuation threshold).
+**Case 3 - Non-contiguous topic recurrence vs. monolithic merging.** The CFPB settlement / PEAKS-loan-unenforceability subject is examined three times, separated by ~19 pages of unrelated testimony about government loan programs and investigations (P61–62, then P82–86, then P86–88 → T021, T028, T029). Naive TF-IDF/embedding clustering without a locality constraint would merge all of this into one 26-page topic on shared vocabulary (`cfpb`, `settlement`, `unenforceable`, `peaks`). Mitigation: `MAX_PAGES_CONTINUE = 8` caps continuous-topic growth regardless of similarity, so the three passages are correctly split into three chronologically distinct topics. As noted in §8, the recurrence-link fields that would connect T021↔T028↔T029 are *not* populated in the committed output — the boundary-splitting safeguard worked, but the cross-linking safeguard did not fire for this fingerprint overlap. Possible future improvement: loosen the keyphrase-fingerprint match or add an embedding-similarity fallback specifically for the cross-link step (independent of the page-continuation threshold).
 
-**Case 4 — Off-the-record recesses and procedural colloquy.** Two brief recesses (P37, P76) involve multiple speaker changes (attorneys, the witness, the videographer, a reporter parenthetical) in quick succession. Splitting on every speaker change would create meaningless micro-topics; ignoring the shift entirely risks misclassifying procedural speech as substantive testimony. Fix: `is_procedural_text()` in `src/segmentation/chunking.py` flags recess/objection/off-the-record language, and short procedural units are attached to the enclosing substantive chunk rather than becoming their own topic; a QA unit made up entirely of such content is flagged `is_procedural: true` on the resulting topic (surfaced in the FastAPI app as a filterable flag, §15).
+**Case 4 - Off-the-record recesses and procedural colloquy.** Two brief recesses (P37, P76) involve multiple speaker changes (attorneys, the witness, the videographer, a reporter parenthetical) in quick succession. Splitting on every speaker change would create meaningless micro-topics; ignoring the shift entirely risks misclassifying procedural speech as substantive testimony. Fix: `is_procedural_text()` in `src/segmentation/chunking.py` flags recess/objection/off-the-record language, and short procedural units are attached to the enclosing substantive chunk rather than becoming their own topic; a QA unit made up entirely of such content is flagged `is_procedural: true` on the resulting topic (surfaced in the FastAPI app as a filterable flag, §15).
 
 ## 14. Three-Run Stability / Reproducibility
 
 `outputs/stability_report.md`, generated by `scripts/compare_runs.py` against three full pipeline executions (`runs/run1`, `runs/run2`, `runs/run3`) with `DEPOINDEX_LLM_PROVIDER=none`:
 
-- **Topic count**: 29 / 29 / 29 — identical.
+- **Topic count**: 29 / 29 / 29 - identical.
 - **Topic labels**: identical across all three runs.
 - **Start and end boundaries** (page:line) for all 29 topics: identical across all three runs.
 - **Supporting references** (`"Persis Yu Deposition P<start> - P<end>"`): identical.
@@ -256,7 +311,7 @@ This is possible because every stage in the pipeline is deterministic in this co
 | `/api/validation` | GET | Returns `validation/manual_validation_report.json` as-is (or `{"available": false}` if absent). |
 | `/api/provenance/check?topic_id=...` | GET | Re-runs the existence/ordering/source-ID checks for one topic against the live canonical transcript, returning `verification_status: verified/failed/unavailable`. |
 
-**When the canonical transcript isn't available**: `outputs/canonical_transcript.json` is intentionally excluded from the repository (it's the reproducible-but-large output of parsing the proprietary source PDF, listed in `.gitignore`). If it's missing, `/api/topics/{id}` and `/api/provenance/check` still return the topic metadata and citations from the committed `topic_index.json`, but with `transcript_available: false`, `source_lines: []`, and an explicit `transcript_unavailable_reason` string explaining that full line-level verification requires the original transcript/PDF, which is intentionally excluded from this repository. This behavior is covered by `tests/test_api.py::test_topic_detail_without_transcript`.
+**When the canonical transcript isn't available**: `outputs/canonical_transcript.json` is intentionally excluded from the repository because it is a large generated output derived from the source deposition PDF, which is not committed to this repository (listed in `.gitignore`). If it's missing, `/api/topics/{id}` and `/api/provenance/check` still return the topic metadata and citations from the committed `topic_index.json`, but with `transcript_available: false`, `source_lines: []`, and an explicit `transcript_unavailable_reason` string explaining that full line-level verification requires the original transcript/PDF, which is intentionally excluded from this repository. This behavior is covered by `tests/test_api.py::test_topic_detail_without_transcript`.
 
 ## 16. Installation
 
@@ -279,8 +334,8 @@ copy .env.example .env
 All configuration is read from environment variables (optionally via `.env`, loaded with `python-dotenv`). See `.env.example`:
 
 ```
-DEPOINDEX_LLM_PROVIDER=none      # openai | ollama | none — deterministic segmenter is used by default
-OPENAI_API_KEY=                  # only needed if DEPOINDEX_LLM_PROVIDER=openai
+DEPOINDEX_LLM_PROVIDER=none                         # openai | ollama | none — deterministic segmenter is used by default
+OPENAI_API_KEY=                                     # only needed if DEPOINDEX_LLM_PROVIDER=openai
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
 OLLAMA_HOST=http://127.0.0.1:11434
@@ -295,7 +350,7 @@ DEPOINDEX_TEMPERATURE=0
 
 ## 18. Running the Pipeline
 
-The source deposition PDF (`Persis_Yu_Deposition.pdf`) is proprietary and is **not committed** to this repository (`.gitignore`: `data/*.pdf`). To reproduce the pipeline end-to-end, place the PDF at `data\Persis_Yu_Deposition.pdf` (or point `DEPOINDEX_PDF_PATH` at it), then:
+The source deposition PDF (`Persis_Yu_Deposition.pdf`) is **not committed** to this repository (`.gitignore`: `data/*.pdf`). To reproduce the pipeline end-to-end, place the PDF at `data\Persis_Yu_Deposition.pdf` (or point `DEPOINDEX_PDF_PATH` at it), then:
 
 ```powershell
 python run_pipeline.py
@@ -350,20 +405,20 @@ DepoIndex/
 ├── run_pipeline.py
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                  # FastAPI application
+│   ├── main.py                         # FastAPI application
 │   └── static/
 │       ├── app.js
 │       ├── index.html
 │       └── style.css
-├── data/                        # gitignored: place Persis_Yu_Deposition.pdf here to run the pipeline
+├── data/                               # gitignored: place Persis_Yu_Deposition.pdf here to run the pipeline
 ├── outputs/
 │   ├── completeness_report.json
 │   ├── run_summary.json
 │   ├── stability_report.md
 │   ├── topic_index.json
 │   └── topic_index.md
-│   # canonical_transcript.json / chunks.json are also produced here but gitignored (regenerable, large)
-├── runs/                        # gitignored: run1/run2/run3 stability-comparison snapshots
+│                                       # canonical_transcript.json / chunks.json are also produced here but gitignored (regenerable, large)
+├── runs/                               # gitignored: run1/run2/run3 stability-comparison snapshots
 ├── scripts/
 │   ├── compare_runs.py
 │   ├── create_presentation.py
@@ -379,24 +434,24 @@ DepoIndex/
 │   ├── __init__.py
 │   ├── extraction/
 │   │   ├── __init__.py
-│   │   ├── models.py            # CanonicalLine, ExtractedPage, CanonicalTranscript, TopicRecord
-│   │   └── pdf_extract.py       # coordinate-aware extraction
+│   │   ├── models.py                   # CanonicalLine, ExtractedPage, CanonicalTranscript, TopicRecord
+│   │   └── pdf_extract.py              # coordinate-aware extraction
 │   ├── pipeline/
 │   │   ├── __init__.py
-│   │   ├── reports.py           # topic_index.json / .md writers
-│   │   └── run.py               # run_pipeline() / CLI entrypoint
+│   │   ├── reports.py                  # topic_index.json / .md writers
+│   │   └── run.py                      # run_pipeline() / CLI entrypoint
 │   ├── provenance/
 │   │   ├── __init__.py
-│   │   ├── ids.py                # source-ID formatting/parsing
-│   │   └── validator.py          # ProvenanceValidator, clamp/drop logic
+│   │   ├── ids.py                      # source-ID formatting/parsing
+│   │   └── validator.py                # ProvenanceValidator, clamp/drop logic
 │   ├── segmentation/
 │   │   ├── __init__.py
-│   │   ├── chunking.py           # Turn / QAUnit / Chunk, procedural detection
-│   │   ├── llm.py                # optional OpenAI/Ollama boundary assist
-│   │   └── topics.py             # TF-IDF segmentation, labeling, recurrence logic
+│   │   ├── chunking.py                 # Turn / QAUnit / Chunk, procedural detection
+│   │   ├── llm.py                      # optional OpenAI/Ollama boundary assist
+│   │   └── topics.py                   # TF-IDF segmentation, labeling, recurrence logic
 │   └── validation/
 │       ├── __init__.py
-│       └── completeness.py       # page/line coverage, gap and duplicate detection
+│       └── completeness.py             # page/line coverage, gap and duplicate detection
 ├── tests/
 │   ├── test_api.py
 │   ├── test_committed_outputs.py
@@ -409,14 +464,14 @@ DepoIndex/
 
 ## 22. Presentation / Demo Deliverables
 
-- `slides/DepoIndex_Presentation.pptx` — a 5-slide, 16:9 presentation deck generated by `scripts/create_presentation.py`.
-- `slides/presentation_transcript.md` — a written speaker transcript for the deck.
+- `slides/DepoIndex_Presentation.pptx` - a 5-slide, 16:9 presentation deck generated by `scripts/create_presentation.py`.
+- `slides/presentation_transcript.md` - a written speaker transcript for the deck.
 
-These are narrative/presentation materials intended to walk a reviewer through the project; where the presentation transcript's phrasing gets ahead of the committed data (specifically the recurrence-linking claim discussed in §8), this README and the actual JSON/test outputs are the authoritative source.
+These are narrative/presentation materials intended to walk a reviewer through the project. This README and the committed JSON/test outputs are the authoritative source for verified project results.
 
 ## 23. Known Limitations
 
-- **Requires the source PDF for full reproduction and for most of `tests/test_pipeline.py`.** The proprietary deposition PDF is intentionally excluded from the repository, so a fresh clone can inspect and verify the *committed* outputs and run the API/output-integrity tests, but cannot re-run extraction/segmentation from scratch without supplying the PDF separately.
+- **Requires the source PDF for full reproduction and for most of `tests/test_pipeline.py`.** The source deposition PDF is intentionally excluded from the repository, so a fresh clone can inspect and verify the *committed* outputs and run the API/output-integrity tests, but cannot re-run extraction/segmentation from scratch without supplying the PDF separately.
 - **Recurrence linking did not fire on this deposition.** The schema and code path exist (§8), but `related_topic_ids`/`recurrence_of` are empty in the current committed output; three genuinely recurring subjects (§13, Case 3) are correctly split chronologically but not cross-linked.
 - **Topic granularity is tuned around this transcript's Q&A cadence.** The chunk-size and similarity thresholds (`CONTINUE_SIM`, `MAX_PAGES_CONTINUE`, `MIN_TOPIC_CHARS`, etc.) were arrived at empirically against this deposition's structure; a transcript with long uninterrupted witness monologues (rather than tight Q&A exchanges) would likely need different tuning or additional sub-sentence boundary detection.
 - **Single-witness, single-document design.** The pipeline processes one deposition PDF into one canonical transcript and one topic index; there's no cross-deposition index, multi-witness handling, or exhibit-linking beyond what's mentioned in testimony text.
@@ -426,13 +481,13 @@ These are narrative/presentation materials intended to walk a reviewer through t
 
 ## 24. Engineering Design Decisions / Trade-offs
 
-**How is a topic defined?** A contiguous, chronologically-ordered run of QA units whose substantive (non-procedural) text stays above a TF-IDF cosine-similarity threshold with the topic's running centroid, up to a page-span cap. It's a segmentation boundary decision, not a fixed taxonomy — there's no predefined list of "topic categories" the system is matching against.
+**How is a topic defined?** A contiguous, chronologically-ordered run of QA units whose substantive (non-procedural) text stays above a TF-IDF cosine-similarity threshold with the topic's running centroid, up to a page-span cap. It's a segmentation boundary decision, not a fixed taxonomy - there's no predefined list of "topic categories" the system is matching against.
 
 **Why this granularity?** Chunk size (~1800 characters / up to 6 QA units) and the `MIN_TOPIC_CHARS = 350` merge floor were chosen so a topic corresponds to roughly one attorney line of questioning (a handful of related Q&A exchanges) rather than either a single question or an entire multi-page examination — the former is too granular to be useful as an index, the latter defeats the purpose of an index.
 
 **How are topic boundaries chosen?** By cosine-similarity drop below `CONTINUE_SIM` between consecutive chunk vectors and the running topic centroid, subject to the `MAX_PAGES_CONTINUE = 8` hard cap regardless of similarity (so a single subject can't silently swallow the whole deposition, see §13 Case 3), and an internal re-split on oversized groups (`MAX_TOPIC_PAGES = 10`) at their weakest internal similarity point.
 
-**How are continuation vs. re-entry handled?** Continuation = similarity stays high and the topic hasn't hit its page cap. Re-entry = a *new* topic whose keyphrase fingerprint matches a topic that already ended, after a gap of at least `RECURRENCE_GAP_PAGES = 4` pages — implemented, but did not trigger on this deposition's fingerprints (§8).
+**How are continuation vs. re-entry handled?** Continuation = similarity stays high and the topic hasn't hit its page cap. Re-entry = a *new* topic whose keyphrase fingerprint matches a topic that already ended, after a gap of at least `RECURRENCE_GAP_PAGES = 4` pages - implemented, but did not trigger on this deposition's fingerprints (§8).
 
 **How is provenance preserved?** Every object downstream of extraction (chunk, QA unit, topic) carries only references (`source_id`, `source_range`) back to `CanonicalLine` records that were created once, at extraction time, from PDF word coordinates. Nothing downstream is allowed to fabricate or renumber a citation; `ProvenanceValidator` is the single gate that decides whether a generated topic's citations are real before they reach `outputs/topic_index.json`.
 
@@ -446,4 +501,4 @@ These are narrative/presentation materials intended to walk a reviewer through t
 
 ## 25. Final Results / Conclusion
 
-Running the deterministic pipeline once against the Persis Yu deposition produced 29 chronologically-ordered, fully-cited topics from 2,042 testimony lines across 82 pages, with zero completeness gaps, zero duplicate line assignments, and zero provenance failures in the committed output. A 25-topic manual sample confirmed 100% location accuracy (the only hard-computed validation metric) with high qualitative marks on relevance and boundary quality. Three independent pipeline runs produced bit-identical artifacts (SHA-256-verified), confirming the deterministic segmenter behaves as designed for this input. The one feature that did **not** activate on this transcript — cross-topic recurrence linking — is documented as such rather than claimed, along with the discrepancy between the presentation narrative and the actual output data on that point. The result is a small, auditable system where every claim the index makes about the deposition can be checked against the original transcript in seconds.
+Running the deterministic pipeline once against the Persis Yu deposition produced 29 chronologically-ordered, fully-cited topics from 2,042 testimony lines across 82 pages, with zero completeness gaps, zero duplicate line assignments, and zero provenance failures in the committed output. A 25-topic manual sample confirmed 100% location accuracy (the only hard-computed validation metric) with high qualitative marks on relevance and boundary quality. Three independent pipeline runs produced bit-identical artifacts (SHA-256-verified), confirming the deterministic segmenter behaves as designed for this input. Cross-topic recurrence linking is implemented but was not triggered on this deposition; this is documented as a known limitation of the current run rather than claimed as a detected result. The result is a small, auditable system where every claim the index makes about the deposition can be checked against the original transcript in seconds.
