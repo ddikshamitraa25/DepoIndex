@@ -36,7 +36,7 @@ Chronological index generated from the canonical transcript. Page/line citations
 
 ## Recurrence policy
 
-If the same subject appears several pages later, DepoIndex keeps a **separate chronological span** and records `recurrence_of` / `related_topic_ids` instead of merging distant testimony.
+If the same subject appears several pages later, the segmenter keeps a **separate chronological span** rather than merging distant testimony. Recurrence-link fields (`recurrence_of`, `related_topic_ids`) exist in the schema; they are populated only when keyphrase fingerprints match after a page gap. On this deposition those fields were not triggered (all `recurrence_of` values are null).
 
 ## Digression policy
 

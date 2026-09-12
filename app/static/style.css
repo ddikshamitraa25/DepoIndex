@@ -76,7 +76,14 @@ aside {
 }
 .line .sid { color: var(--accent); font-family: Consolas, monospace; margin-right: 8px; }
 .ok { color: var(--ok); font-weight: 600; }
+.warn { color: #9a6700; font-weight: 600; }
 .bad { color: #9b2226; font-weight: 600; }
+.notice {
+  background: #fff6e5;
+  border: 1px solid #e6c98a;
+  padding: 10px 12px;
+  margin: 8px 0 16px;
+}
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; }
 }

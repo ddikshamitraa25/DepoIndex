@@ -4,16 +4,14 @@
   "entries_reviewed": 25,
   "metrics": {
     "location_accuracy_pct": 100.0,
-    "definition_location_accuracy": "Percentage of evaluated topics whose start/end citations correspond to real, existing lines in the canonical transcript in valid chronological sequence (start <= end) with matching source IDs.",
-    "topic_relevance_pct": 100.0,
-    "definition_topic_relevance": "Percentage of evaluated topics whose topic label faithfully reflects the substantive examination matter addressed in that span of testimony.",
-    "boundary_quality_pct": 95.5,
-    "definition_boundary_quality": "Percentage of topics whose start and end boundaries cleanly segment discrete lines of inquiry without splitting mid-question or mid-answer.",
-    "coverage_pct": 100.0,
-    "definition_coverage": "Percentage of testimony within reviewed spans accounted for and deterministically retrievable by source ID without unindexed gaps."
+    "definition_location_accuracy": "Computed percentage of sampled topics whose start/end citations correspond to real, existing lines in the canonical transcript in valid chronological sequence (start <= end).",
+    "qualitative_rubric_note": "Manual rubric assessment across 25 sampled topic entries. Topic relevance, boundary quality, coverage, and redundancy are reviewer judgments recorded on each evaluation, not automatically computed percentages.",
+    "topic_relevance": "Qualitative. All 25 sampled entries were judged High by the reviewer.",
+    "boundary_quality": "Qualitative. Sampled boundaries were judged Good; T012 notes a complex simultaneous-speaker boundary at P36:L7.",
+    "coverage": "Qualitative for sampled spans. Separately, the committed completeness report records 0 gaps and 0 duplicate line assignments across 2,042 testimony lines."
   },
   "reviewer": "AI/LLM Engineering Quality Auditor",
-  "methodology": "Each reviewed topic was cross-referenced against the raw PyMuPDF-extracted text and canonical transcript. Boundaries were evaluated for natural break points (e.g. topic changes, exhibit introductions, procedural breaks). Source references and evidence quotes were verified against transcript line index.",
+  "methodology": "Manual rubric assessment across 25 sampled topic entries. Location accuracy is the only percentage computed from citation existence checks. Topic relevance, boundary quality, coverage, and redundancy were assigned as qualitative labels in the review script and are not independent automated measurements.",
   "evaluations": [
     {
       "topic_id": "T001",

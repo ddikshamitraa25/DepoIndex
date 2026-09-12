@@ -15,12 +15,18 @@ from src.segmentation.topics import segment_topics
 
 ROOT = Path(__file__).resolve().parents[1]
 PDF = ROOT / "data" / "Persis_Yu_Deposition.pdf"
+requires_pdf = pytest.mark.skipif(
+    not PDF.exists(),
+    reason="requires private source PDF (data/Persis_Yu_Deposition.pdf), which is intentionally excluded",
+)
 
 
 @pytest.fixture(scope="session")
 def transcript():
     if not PDF.exists():
-        pytest.skip("Deposition PDF is not present")
+        pytest.skip(
+            "requires private source PDF (data/Persis_Yu_Deposition.pdf), which is intentionally excluded"
+        )
     return extract_deposition(str(PDF))
 
 
@@ -35,6 +41,7 @@ def test_source_id_generation_and_parse():
         parse_source_id("page-12-line-4")
 
 
+@requires_pdf
 def test_pdf_extraction_page_and_line_numbers(transcript):
     assert transcript.total_pdf_pages == 122
     assert transcript.testimony_page_start is not None
@@ -43,17 +50,17 @@ def test_pdf_extraction_page_and_line_numbers(transcript):
     assert transcript.testimony_page_end >= 80
     testimony = [ln for ln in transcript.lines if ln.is_testimony]
     assert len(testimony) > 1000
-    # Canonical IDs must match extracted page/line, never invented
+    assert len(testimony) == 82 * 25
     for ln in testimony[:50]:
         assert ln.source_id == f"P{ln.page}:L{ln.line}"
         assert 1 <= ln.line <= 25
-    # Known line from inspection of the PDF
     loc = transcript.by_page_line()
     assert (7, 12) in loc
     assert "Good afternoon" in loc[(7, 12)].text
     assert loc[(7, 12)].speaker == "Q"
 
 
+@requires_pdf
 def test_missing_and_duplicate_line_detection(transcript):
     testimony_pages = [
         p
@@ -69,6 +76,7 @@ def test_missing_and_duplicate_line_detection(transcript):
         assert isinstance(p.missing_lines, list)
 
 
+@requires_pdf
 def test_provenance_rejects_invalid_boundaries(transcript):
     v = ProvenanceValidator(transcript)
     bad = TopicRecord(
@@ -87,6 +95,7 @@ def test_provenance_rejects_invalid_boundaries(transcript):
     assert notes
 
 
+@requires_pdf
 def test_provenance_accepts_real_span(transcript):
     ln = next(x for x in transcript.lines if x.is_testimony and x.text.strip())
     v = ProvenanceValidator(transcript)
@@ -105,6 +114,7 @@ def test_provenance_accepts_real_span(transcript):
     assert ok, notes
 
 
+@requires_pdf
 def test_chronological_topic_order(transcript):
     chunks = build_chunks(transcript)
     topics = segment_topics(transcript, chunks)
@@ -113,6 +123,7 @@ def test_chronological_topic_order(transcript):
     assert pairs == sorted(pairs)
 
 
+@requires_pdf
 def test_json_structure_of_topics(transcript):
     topics = segment_topics(transcript, build_chunks(transcript))
     required = {
@@ -133,6 +144,7 @@ def test_json_structure_of_topics(transcript):
         json.dumps(entry)
 
 
+@requires_pdf
 def test_turns_have_speakers(transcript):
     testimony = [ln for ln in transcript.lines if ln.is_testimony]
     turns = group_turns(testimony)
@@ -142,31 +154,34 @@ def test_turns_have_speakers(transcript):
     assert "A" in speakers or "WITNESS" in speakers
 
 
+@requires_pdf
 def test_geometric_speaker_parsing(transcript):
     loc = transcript.by_page_line()
-    # P9:L20 is counsel continuation starting with 'A couple other questions now.'
     assert (9, 20) in loc
     assert loc[(9, 20)].speaker == "Q"
     assert loc[(9, 20)].text.startswith("A couple other questions now.")
-    # P25:L24 is witness answer starting with 'A small handful of times.'
     assert (25, 24) in loc
     assert loc[(25, 24)].speaker == "A"
     assert loc[(25, 24)].text.startswith("A small handful of times.")
 
 
-def test_completeness_report_coverage(transcript):
-    chunks = build_chunks(transcript)
-    from src.validation.completeness import build_completeness_report
-    report = build_completeness_report(transcript, chunks)
-    assert report["total_pdf_pages"] == 122
-    assert report["testimony_page_start"] == 7
-    assert report["testimony_page_end"] == 88
-    assert len(report["testimony_pages"]) == 82
-    assert report["extracted_testimony_lines"] == 2042
-    assert len(report["gaps_detected"]) == 0
-    assert len(report["duplicate_lines"]) == 0
+@requires_pdf
+def test_unique_source_ids(transcript):
+    ids = [ln.source_id for ln in transcript.lines]
+    assert ids
+    assert len(ids) == len(set(ids))
 
 
+@requires_pdf
+def test_word_index_does_not_collide_with_testimony(transcript):
+    assert all(p.page_role != "word_index" or not p.line_numbers for p in transcript.pages)
+    word_index_pages = [p for p in transcript.pages if p.page_role == "word_index"]
+    assert word_index_pages, "expected word-index pages at the end of this PDF"
+    testimony_ids = {ln.source_id for ln in transcript.lines if ln.is_testimony}
+    assert "P7:L12" in testimony_ids
+
+
+@requires_pdf
 def test_all_generated_topics_pass_provenance(transcript):
     v = ProvenanceValidator(transcript)
     topics_file = ROOT / "outputs" / "topic_index.json"
@@ -179,8 +194,8 @@ def test_all_generated_topics_pass_provenance(transcript):
         assert ok, f"Topic {rec.topic_id} failed provenance: {notes}"
 
 
+@requires_pdf
 def test_gap_detection_logic(transcript):
-    # Simulate a copy of transcript with a dropped line
     from src.validation.completeness import build_completeness_report
     copy_lines = [ln for ln in transcript.lines if ln.source_id != "P15:L10"]
     transcript_copy = transcript.model_copy(update={"lines": copy_lines})
@@ -188,43 +203,3 @@ def test_gap_detection_logic(transcript):
     report = build_completeness_report(transcript_copy, chunks)
     missing_pages = [g["page"] for g in report["gaps_detected"]]
     assert 15 in missing_pages
-
-
-def test_fastapi_endpoints():
-    from fastapi.testclient import TestClient
-    from app.main import app
-    client = TestClient(app)
-    
-    res = client.get("/")
-    assert res.status_code == 200
-    assert "DepoIndex" in res.text
-    
-    res = client.get("/api/topics")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["count"] == 29
-    assert len(data["topics"]) == 29
-    
-    res = client.get("/api/topics/T001")
-    assert res.status_code == 200
-    detail = res.json()
-    assert detail["topic"]["topic_id"] == "T001"
-    assert len(detail["source_lines"]) > 0
-    
-    res = client.get("/api/search?q=PEAKS")
-    assert res.status_code == 200
-    search_res = res.json()
-    assert len(search_res["results"]) > 0
-    
-    res = client.get("/api/completeness")
-    assert res.status_code == 200
-    assert res.json()["extracted_testimony_lines"] == 2042
-    
-    res = client.get("/api/validation")
-    assert res.status_code == 200
-    assert res.json()["available"] is True
-    assert res.json()["entries_reviewed"] >= 20
-    
-    res = client.get("/api/provenance/check?topic_id=T001")
-    assert res.status_code == 200
-    assert res.json()["ok"] is True

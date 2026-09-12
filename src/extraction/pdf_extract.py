@@ -35,23 +35,29 @@ def _classify_page_role(text: str, transcript_page: int | None, has_lines: bool)
     upper = compact.upper()
     if "ADMINISTRATIVE INFORMATION REDACTED" in upper:
         return "redacted_administrative"
-    if "I N D E X" in compact or re.search(r"\bINDEX\b", upper) and "WITNESS" in upper and "EXAMINATION" in upper:
-        return "index"
-    if "FEDERAL RULES OF CIVIL PROCEDURE" in upper:
+    # Word-index volumes restart "Page 1" in the footer. Detect them before using that footer
+    # as a deposition page number, or P1:L1 would collide with testimony coordinates.
+    if re.search(r"\[[^\]]+\s-\s[^\]]+\]", compact) and compact.count(":") >= 15:
+        return "word_index"
+    if "FEDERAL RULES OF CIVIL PROCEDURE" in upper and "REVIEW BY THE WITNESS" in upper:
         return "procedural_appendix"
     if "COMPANY CERTIFICATE AND DISCLOSURE" in upper:
         return "reporter_certificate"
+    if "I N D E X" in compact or (
+        re.search(r"\bINDEX\b", upper) and "WITNESS" in upper and "EXAMINATION" in upper
+    ):
+        return "index"
     if "CERTIFICATION" in upper and "SHORTHAND REPORTER" in upper:
         return "csr_certificate"
+    if "E R R A T A" in compact or "ERRATA SHEET" in upper:
+        return "errata_declaration"
+    if "WITNESS SIGNATURE" in upper or "SOLEMNLY DECLARE UNDER PENALTY" in upper:
+        return "errata_declaration"
     if "DEPOSITION CONCLUDED" in upper or "WHEREUPON, THE DEPOSITION" in upper:
         return "transcript"
-    if "WITNESS SIGNATURE" in upper or "DECLARATION UNDER PENALTY OF PERJURY" in upper or "SOLEMNLY DECLARE" in upper:
-        return "errata_declaration"
-    if re.search(r"\[\w+\s*-\s*\w+\]", compact) and compact.count(":") > 20:
-        return "word_index"
     if not has_lines:
         return "unnumbered"
-    if transcript_page is not None and transcript_page <= 6 and "MR." in upper:
+    if transcript_page is not None and transcript_page <= 6 and "MR." in upper and "      Q" not in text:
         return "appearances_and_preliminaries"
     return "transcript"
 
@@ -203,19 +209,29 @@ def _apply_speakers(lines: list[CanonicalLine]) -> None:
             line.text = rest if rest else line.text
 
 
-def _detect_testimony_range(pages: list[ExtractedPage], lines: list[CanonicalLine]) -> tuple[int | None, int | None]:
+SKIP_LINE_ROLES = {
+    "word_index",
+    "procedural_appendix",
+    "reporter_certificate",
+    "redacted_administrative",
+    "unnumbered",
+}
+
+
+def _detect_testimony_range(lines: list[CanonicalLine]) -> tuple[int | None, int | None]:
     start = None
     end = None
+    last_qa = None
     for line in lines:
-        if line.speaker_kind == "Q" and start is None:
-            start = line.page
+        if line.speaker_kind in ("Q", "A", "WITNESS") and line.page_role == "transcript":
+            if start is None and line.speaker_kind == "Q":
+                start = line.page
+            last_qa = line.page
         joined = line.text.upper()
         if "THIS CONCLUDES TODAY" in joined or "DEPOSITION CONCLUDED" in joined:
             end = line.page
     if start is not None and end is None:
-        numbered = [p.transcript_page for p in pages if p.transcript_page and p.page_role in ("transcript", "appearances_and_preliminaries")]
-        if numbered:
-            end = max(numbered)
+        end = last_qa
     return start, end
 
 
@@ -228,15 +244,48 @@ def extract_deposition(pdf_path: str) -> CanonicalTranscript:
     for pdf_index in range(doc.page_count):
         page = doc[pdf_index]
         raw = page.get_text()
-        by_line, transcript_page, warnings, duplicates, seen = extract_page_lines(page)
+        preview_role = _classify_page_role(raw, None, True)
+        if preview_role in SKIP_LINE_ROLES:
+            role = preview_role
+            if role == "redacted_administrative":
+                transcript_page = pdf_index + 1
+            else:
+                transcript_page = None
+            pages.append(
+                ExtractedPage(
+                    pdf_page_index=pdf_index,
+                    transcript_page=transcript_page,
+                    page_role=role,
+                    line_numbers=[],
+                    missing_lines=[],
+                    duplicate_lines=[],
+                    warnings=[],
+                    raw_text=raw,
+                )
+            )
+            continue
+
+        by_line, transcript_page, warnings, duplicates, _seen = extract_page_lines(page)
         line_numbers = sorted(by_line.keys())
         missing = []
         if line_numbers:
             expected = [n for n in EXPECTED_LINES if n <= max(line_numbers)]
             missing = [n for n in expected if n not in by_line]
         role = _classify_page_role(raw, transcript_page, bool(line_numbers))
-        if transcript_page is None and role == "redacted_administrative":
-            transcript_page = pdf_index + 1
+        if role in SKIP_LINE_ROLES:
+            pages.append(
+                ExtractedPage(
+                    pdf_page_index=pdf_index,
+                    transcript_page=None,
+                    page_role=role,
+                    line_numbers=[],
+                    missing_lines=[],
+                    duplicate_lines=[],
+                    warnings=[],
+                    raw_text=raw,
+                )
+            )
+            continue
 
         extracted = ExtractedPage(
             pdf_page_index=pdf_index,
@@ -250,18 +299,22 @@ def extract_deposition(pdf_path: str) -> CanonicalTranscript:
         )
         pages.append(extracted)
 
-        page_no = transcript_page if transcript_page is not None else pdf_index + 1
+        if transcript_page is None:
+            global_warnings.append(
+                f"PDF page {pdf_index + 1} ({role}) has numbered lines but no 'Page N' footer"
+            )
+            continue
+
         for line_no in line_numbers:
             rec = by_line[line_no]
-            text = rec["text"]
             all_lines.append(
                 CanonicalLine(
-                    source_id=make_source_id(page_no, line_no),
-                    page=page_no,
+                    source_id=make_source_id(transcript_page, line_no),
+                    page=transcript_page,
                     line=line_no,
                     speaker="UNKNOWN",
                     speaker_kind="UNKNOWN",
-                    text=text,
+                    text=rec["text"],
                     timestamp=rec.get("timestamp"),
                     pdf_page_index=pdf_index,
                     page_role=role,
@@ -271,41 +324,16 @@ def extract_deposition(pdf_path: str) -> CanonicalTranscript:
             )
 
     _apply_speakers(all_lines)
-    testimony_start, testimony_end = _detect_testimony_range(pages, all_lines)
+    ids = [ln.source_id for ln in all_lines]
+    if len(ids) != len(set(ids)):
+        global_warnings.append("Duplicate source_id values were produced during extraction.")
 
-    if testimony_start is not None and testimony_end is not None:
+    first_q, last_testimony_page = _detect_testimony_range(all_lines)
+    if first_q is not None and last_testimony_page is not None:
         for line in all_lines:
-            if testimony_start <= line.page <= testimony_end and line.page_role in (
-                "transcript",
-                "appearances_and_preliminaries",
-            ):
-                line.is_testimony = True
-            # Page 6 appearances are before first Q; keep as preliminaries unless Q/A present
-            if line.page == testimony_start and line.speaker_kind in ("Q", "A", "BY", "WITNESS"):
-                line.is_testimony = True
-
-        # Mark full testimony window including attorney colloquy on those pages
-        for line in all_lines:
-            if (
-                testimony_start <= line.page <= testimony_end
-                and line.page_role == "transcript"
-            ):
-                line.is_testimony = True
-
-    # First Q page through conclusion: include page 7-88 style detection without hardcoding
-    first_q = next((ln.page for ln in all_lines if ln.speaker_kind == "Q"), None)
-    last_testimony_page = testimony_end
-    if first_q is not None:
-        for line in all_lines:
-            if last_testimony_page and first_q <= line.page <= last_testimony_page:
-                if line.page_role in ("transcript", "appearances_and_preliminaries"):
-                    # appearances page before first Q is not testimony Q/A
-                    if line.page < first_q:
-                        line.is_testimony = False
-                    elif line.page == last_testimony_page and line.line > 17:
-                        line.is_testimony = False
-                    else:
-                        line.is_testimony = True
+            line.is_testimony = (
+                line.page_role == "transcript" and first_q <= line.page <= last_testimony_page
+            )
 
     if not any(ln.is_testimony for ln in all_lines):
         global_warnings.append("No testimony lines detected; check extraction.")
