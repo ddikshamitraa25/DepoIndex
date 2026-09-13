@@ -307,10 +307,12 @@ DepoIndex/
 
 The repository was developed incrementally through multiple meaningful commits rather than as a single final upload.
 
+- **Final submission state:** `629ca87` — `Add Git history section to README`
 - **Earlier meaningful commit:** `1420625` — `Finalize DepoIndex pipeline and validation`
-- **Current pre-documentation commit:** `9b05752` — `Add AI usage disclosure`
 
-The earlier commit contains the completed processing pipeline and validation work. Subsequent commits added the committed deposition source, canonical transcript, live-demo support, README refinements, and AI usage disclosure required for the final submission.
+The earlier commit contains the completed processing pipeline and validation work. Subsequent commits added the deposition source, canonical transcript, live-demo support, AI/LLM usage documentation, and final submission documentation.
+
+The final submission state is represented by the latest pushed commit shown above.
 
 ## Presentation
 
