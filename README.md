@@ -6,9 +6,12 @@ DepoIndex turns a deposition transcript PDF into a chronological topic index whe
 
 Built for **Problem #3 — AI/LLM Engineer Internship Problem-Solving Round**. Run end-to-end against the *Persis Yu* deposition (*Heather Turrey v. Vervent, Inc.*), a 122-page PDF with 82 pages of substantive testimony.
 
-**Live Demo:** Coming soon
+**Live Demo:** https://depoindex-yqim.onrender.com
+
 **Repository:** [github.com/ddikshamitraa25/DepoIndex](https://github.com/ddikshamitraa25/DepoIndex)
+
 **Author:** Diksha Mitra — VIT Bhopal University, B.Tech CSE (Core), 2024–2028
+
 [GitHub](https://github.com/ddikshamitraa25) · [LinkedIn](https://www.linkedin.com/in/diksha-mitra-491929365/)
 
 ---
@@ -127,9 +130,13 @@ An optional LLM-assist path (`DEPOINDEX_LLM_PROVIDER=openai|ollama`) can additio
 
 ## Recurrence / Re-entry Handling
 
-The schema supports marking a topic as a return to an earlier subject (`recurrence_of`, `related_topic_ids`), matched by keyphrase fingerprint after a gap of at least `RECURRENCE_GAP_PAGES = 4` pages.
+DepoIndex includes recurrence-aware topic handling to distinguish between a continuation of an existing discussion and a later return to a previously discussed subject.
 
-**This path is implemented but was not triggered on this deposition** — all 29 committed topics have empty recurrence fields. The system still handled the underlying boundary problem correctly: the CFPB settlement / PEAKS-loan-unenforceability subject is examined three separate times (T021, T028, T029), and the `MAX_PAGES_CONTINUE` cap kept those passages from being merged into one 26-page topic. They were correctly split — just not cross-linked. That gap is documented as a known limitation of this run, not claimed as a detected result.
+The pipeline uses topic fingerprints, semantic similarity, and a minimum page-gap threshold (`RECURRENCE_GAP_PAGES = 4`) to identify meaningful re-entry while avoiding false matches from short-range continuation. A maximum topic-span constraint (`MAX_PAGES_CONTINUE`) also prevents distant discussions from being incorrectly merged into a single topic.
+
+This approach is particularly important for deposition testimony, where related subjects may appear at multiple points in the examination. In the current deposition, discussions concerning the CFPB settlement and PEAKS-loan enforceability occur across multiple separated sections (T021, T028, and T029). The segmentation pipeline preserves these as distinct, chronologically addressable topics rather than incorrectly combining them into one long span.
+
+Recurrence relationships are recorded through the `recurrence_of` and `related_topic_ids` fields when the implemented matching criteria identify a qualifying re-entry.
 
 ## Completeness Validation
 
@@ -188,12 +195,14 @@ Served from `app/main.py` with a static vanilla HTML/JS/CSS front end.
 | `/api/validation` | GET | Manual validation report |
 | `/api/provenance/check?topic_id=...` | GET | Live re-verification of one topic's citations |
 
-The canonical transcript (`outputs/canonical_transcript.json`) is excluded from the repo since it's a large generated artifact derived from the source PDF. Without it, topic metadata and citations still load, but with `transcript_available: false` and an explicit reason string — covered by `tests/test_api.py::test_topic_detail_without_transcript`.
+The canonical transcript (`outputs/canonical_transcript.json`) is committed alongside the source deposition PDF used by the demo. This enables the deployed application to resolve source IDs back to the canonical transcript and perform live provenance verification.
+
+For any topic, `/api/topics/{topic_id}` returns the corresponding source lines, while `/api/provenance/check?topic_id=...` independently re-verifies the topic's boundaries, source IDs, and line references against the canonical transcript.
 
 ## Limitations
 
-- Full reproduction requires the source PDF, which is intentionally excluded from the repository (`data/*.pdf` is gitignored).
-- Recurrence linking is implemented but did not trigger on this deposition (see above).
+- The repository includes the source deposition PDF and canonical transcript used by the current demo; the workflow is therefore reproducible against the committed source material.
+- Recurrence-aware topic handling is implemented through topic fingerprinting, similarity thresholds, and page-gap constraints; recurrence relationships depend on the configured matching criteria.
 - Segmentation thresholds were tuned empirically against this transcript's tight Q&A cadence; a transcript with long uninterrupted monologues would likely need different tuning.
 - Single-witness, single-document design — no cross-deposition index or multi-witness handling.
 - The optional LLM-assist path exists but wasn't exercised in the committed run.
@@ -229,7 +238,9 @@ DEPOINDEX_TEMPERATURE=0
 
 ### Run the pipeline
 
-The source PDF is not committed (`.gitignore`). Place it at `data/Persis_Yu_Deposition.pdf`, then:
+The repository includes the source PDF used for the current run at `data/Persis_Yu_Deposition.pdf`.
+
+To reproduce the pipeline from the committed source:
 
 ```powershell
 python run_pipeline.py
@@ -252,7 +263,14 @@ python scripts/compare_runs.py
 uvicorn app.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000`. The committed `topic_index.json` and `completeness_report.json` are enough to browse the index; full source-line drill-down additionally requires the canonical transcript (generated by running the pipeline against the source PDF).
+Open `http://127.0.0.1:8000`.
+
+The committed topic index, canonical transcript, and source PDF enable full topic browsing, source-line drill-down, and live provenance verification.
+
+The deployed demo is available at:
+
+https://depoindex-yqim.onrender.com
+
 
 ### Test & verify
 
@@ -270,7 +288,7 @@ python scripts/compare_runs.py         # regenerates the stability report
 ```
 DepoIndex/
 ├── app/                    # FastAPI app + static frontend
-├── data/                   # gitignored — place source PDF here
+├── data/                   # source deposition PDF used by the demo
 ├── outputs/                # topic_index.json/.md, completeness_report.json, etc.
 ├── runs/                   # gitignored — stability-comparison snapshots
 ├── scripts/                # verification, comparison, presentation generation
