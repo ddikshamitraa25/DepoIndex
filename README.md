@@ -303,6 +303,15 @@ DepoIndex/
 └── validation/             # manual validation + failure analysis reports
 ```
 
+## Git History
+
+The repository was developed incrementally through multiple meaningful commits rather than as a single final upload.
+
+- **Earlier meaningful commit:** `1420625` — `Finalize DepoIndex pipeline and validation`
+- **Current pre-documentation commit:** `9b05752` — `Add AI usage disclosure`
+
+The earlier commit contains the completed processing pipeline and validation work. Subsequent commits added the committed deposition source, canonical transcript, live-demo support, README refinements, and AI usage disclosure required for the final submission.
+
 ## Presentation
 
 `slides/DepoIndex_Presentation.pptx` (5-slide, 16:9 deck) and `slides/presentation_transcript.md` walk through the project narratively. This README and the committed JSON/test outputs remain the authoritative source for verified results.
