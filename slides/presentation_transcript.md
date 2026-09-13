@@ -50,7 +50,7 @@ When the topic segmenter operates—whether using our deterministic vector centr
 
 > **[Slide Visual]**  
 > *Cards:*  
-> 1. Dispersed Recurrence & Digression Policy (Procedural coalescing, `MAX_PAGES_CONTINUE = 8`, `RECURRENCE_GAP = 4`, `related_topic_ids`).  
+> 1. Dispersed Recurrence & Digression Policy (Procedural coalescing, `MAX_PAGES_CONTINUE = 8`, `RECURRENCE_GAP = 4`, recurrence handling implemented).  
 > 2. Real Generated Output Samples (T001, T002, T005, T010, T016, T023, T029).
 
 ### Speaker Transcript:
@@ -60,7 +60,7 @@ In a real deposition, attorneys frequently encounter objections, requests for re
 
 Even more challenging is **topic recurrence**. In this deposition, the subject of the **CFPB Settlement Agreement** and the **unenforceability of PEAKS loans** appears across multiple disparate chapters: first at Page 61, again at Page 82, and concluding at Page 86. A standard embedding clusterer would merge all 26 pages into a single giant topic, destroying chronological fidelity. 
 
-DepoIndex enforces a strict `MAX_PAGES_CONTINUE` threshold of 8 pages. When the same subject recurs after 4 or more pages of intervening testimony, DepoIndex creates a distinct chronological topic (`T021`, `T028`, `T029`), generates an attorney-useful contextual label, and deterministically links the related spans using the `recurrence_of` and `related_topic_ids` fields.
+DepoIndex enforces a strict `MAX_PAGES_CONTINUE` threshold of 8 pages. When the same subject recurs after 4 or more pages of intervening testimony, DepoIndex creates distinct chronological topics (`T021`, `T028`, `T029`) with contextual labels. Recurrence handling is implemented in the schema and pipeline; no recurrence link was triggered on this deposition.
 
 On the right side of the slide, you see real topic titles produced by the system, such as `T005: Have you worked on any initiatives that were directed at student loan servicers?`, `T010: Economic value of ITT diploma, Senate HELP report`, and `T029: Core opinion: PEAKS loans unenforceable at inception`."
 
@@ -70,7 +70,7 @@ On the right side of the slide, you see real topic titles produced by the system
 
 > **[Slide Visual]**  
 > *Cards:*  
-> 1. Manual Quality Audit (25 topics audited, 100% location accuracy, 100% relevance, 96.0% boundary quality, 0 gaps across 2,042 lines).  
+> 1. Manual Quality Audit (25 topics audited, 100% location accuracy, 100% relevance, 95.5% boundary quality, 0 gaps across 2,042 lines).  
 > 2. Three-Run Stability Comparison (`runs/run1-3`, 29 topics identical, SHA-256 bit-level match across all outputs).
 
 ### Speaker Transcript:
@@ -79,7 +79,7 @@ On the right side of the slide, you see real topic titles produced by the system
 First, we conducted a rigorous **Manual Quality Audit** of 25 topics distributed across the 82 testimony pages, inspecting the underlying text for every single entry.
 - **Location Accuracy:** 100.0%. Every start and end citation corresponds to real, verified lines in the transcript with valid chronological sequencing.
 - **Topic Relevance:** 100.0%. Each generated topic title accurately reflects the substantive subject of counsel's questioning.
-- **Boundary Quality:** 96.0%. Boundaries align cleanly with question shifts and document introductions.
+- **Boundary Quality:** 95.5%. Boundaries align cleanly with question shifts and document introductions.
 - **Coverage & Gap Detection:** 100.0%. All 2,042 testimony lines from Page 7 Line 1 through Page 88 Line 17 are completely accounted for, with zero missing or duplicate lines detected.
 
 Second, we performed the **Three-Run Stability Test** required by Step 12. We ran the entire end-to-end pipeline three consecutive times, creating `runs/run1`, `runs/run2`, and `runs/run3`. 

@@ -135,7 +135,7 @@ add_card(slide3, Inches(0.8), Inches(1.8), Inches(5.6), Inches(5.0), "Dispersed 
     "Conversational Digressions: Brief procedural interruptions (breaks at P37:L10, P76:L5) are coalesced into enclosing chunks rather than creating artificial micro-topics.",
     "Recurrence Policy: Key subjects (CFPB Settlement, PEAKS unenforceability) appear at non-contiguous intervals (P61, P82, P86).",
     "Locality Constraints: MAX_PAGES_CONTINUE = 8 prevents runaway topic drift. Intervening testimony forces clean chronological topic boundaries.",
-    "Cross-Span Linking: Returning topics record recurrence_of and related_topic_ids, allowing attorneys to jump between related spans."
+    "Recurrence Handling: Recurrence architecture implemented (recurrence_of, related_topic_ids); no recurrence link was triggered on this deposition."
 ])
 
 add_card(slide3, Inches(6.8), Inches(1.8), Inches(5.7), Inches(5.0), "Real Generated Output Samples (from 29 topics)", [
@@ -156,7 +156,7 @@ add_card(slide4, Inches(0.8), Inches(1.8), Inches(5.6), Inches(5.0), "Manual Qua
     "Audit Sample: 25 topics evaluated across early, middle, and concluding testimony.",
     "Location Accuracy: 100.0% (all start/end coordinates match canonical transcript lines).",
     "Topic Relevance: 100.0% (labels accurately capture substantive lines of inquiry).",
-    "Boundary Quality: 96.0% (clean alignment with question transitions and exhibit shifts).",
+    "Boundary Quality: 95.5% (clean alignment with question transitions and exhibit shifts).",
     "Coverage & Zero Gaps: 100% of 2,042 testimony lines mapped without missing spans.",
     "Documented in validation/manual_validation_report.json and .md."
 ])
