@@ -13,7 +13,7 @@ topics_data = json.load(open(OUTPUTS / "topic_index.json", encoding="utf-8"))
 
 line_index = {(ln["page"], ln["line"]): ln for ln in transcript_data["lines"]}
 
-# Select 22 topics spread evenly across the 82 pages of testimony (P7 to P88)
+# Select 25 topics spread evenly across the 82 pages of testimony (P7 to P88)
 selected_indices = [
     0,   # T001: P7:L1 - P9:L18 (Opening preliminaries, perjury warning, prior depositions)
     1,   # T002: P9:L19 - P11:L17 (Marking Exhibit 1 - Expert Report, Law School & CV)

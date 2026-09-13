@@ -12,13 +12,13 @@ To satisfy the stability testing requirement (Step 12), the complete DepoIndex p
 
 | Dimension | Run 1 | Run 2 | Run 3 | Match Status |
 |---|---|---|---|---|
-| **Total Topics** | 29 | 29 | 29 | **100% IDENTICAL** |
-| **Topic Labels** | 29 labels | 29 labels | 29 labels | **100% IDENTICAL** |
-| **Start Boundaries (Page:Line)** | 29 spans | 29 spans | 29 spans | **100% IDENTICAL** |
-| **End Boundaries (Page:Line)** | 29 spans | 29 spans | 29 spans | **100% IDENTICAL** |
-| **Supporting References** | 29 citations | 29 citations | 29 citations | **100% IDENTICAL** |
-| **Source IDs Mapped** | 2,042 lines | 2,042 lines | 2,042 lines | **100% IDENTICAL** |
-| **Extracted Pages / Lines** | 122 pages / 2,233 lines | 122 pages / 2,233 lines | 122 pages / 2,233 lines | **100% IDENTICAL** |
+| **Total Topics** | 29 | 29 | 29 | YES (100% Match) |
+| **Topic Labels** | 29 labels | 29 labels | 29 labels | YES (100% Match) |
+| **Start Boundaries (Page:Line)** | 29 spans | 29 spans | 29 spans | YES (100% Match) |
+| **End Boundaries (Page:Line)** | 29 spans | 29 spans | 29 spans | YES (100% Match) |
+| **Supporting References** | 29 citations | 29 citations | 29 citations | YES (100% Match) |
+| **Source IDs Mapped** | 2042 lines | 2042 lines | 2042 lines | YES (100% Match) |
+| **Extracted Pages / Lines** | 122 pages / 2233 lines | 122 pages / 2233 lines | 122 pages / 2233 lines | YES (100% Match) |
 
 ## SHA-256 Artifact Checksums
 

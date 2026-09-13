@@ -47,6 +47,22 @@ ends_match = [(t["end_page"], t["end_line"]) for t in t1] == [(t["end_page"], t[
 refs_match = [t["supporting_source_reference"] for t in t1] == [t["supporting_source_reference"] for t in t2] == [t["supporting_source_reference"] for t in t3]
 sids_match = [t["source_ids"] for t in t1] == [t["source_ids"] for t in t2] == [t["source_ids"] for t in t3]
 
+c1 = json.load(open(run1_dir / "completeness_report.json", encoding="utf-8"))
+c2 = json.load(open(run2_dir / "completeness_report.json", encoding="utf-8"))
+c3 = json.load(open(run3_dir / "completeness_report.json", encoding="utf-8"))
+
+pages_match = c1.get("total_pdf_pages") == c2.get("total_pdf_pages") == c3.get("total_pdf_pages")
+lines_match = c1.get("extracted_lines") == c2.get("extracted_lines") == c3.get("extracted_lines")
+testimony_lines_match = c1.get("extracted_testimony_lines") == c2.get("extracted_testimony_lines") == c3.get("extracted_testimony_lines")
+extracted_match = pages_match and lines_match and testimony_lines_match
+
+sids_count1 = len({sid for t in t1 for sid in t.get("source_ids", [])})
+sids_count2 = len({sid for t in t2 for sid in t.get("source_ids", [])})
+sids_count3 = len({sid for t in t3 for sid in t.get("source_ids", [])})
+
+def status_str(ok: bool) -> str:
+    return "YES (100% Match)" if ok else "NO (Differences Found)"
+
 report_lines = [
     "# DepoIndex — Three-Run Stability & Reproducibility Report",
     "",
@@ -63,13 +79,14 @@ report_lines = [
     "",
     "| Dimension | Run 1 | Run 2 | Run 3 | Match Status |",
     "|---|---|---|---|---|",
-    f"| **Total Topics** | {len(t1)} | {len(t2)} | {len(t3)} | **100% IDENTICAL** |",
-    f"| **Topic Labels** | 29 labels | 29 labels | 29 labels | **100% IDENTICAL** |",
-    f"| **Start Boundaries (Page:Line)** | 29 spans | 29 spans | 29 spans | **100% IDENTICAL** |",
-    f"| **End Boundaries (Page:Line)** | 29 spans | 29 spans | 29 spans | **100% IDENTICAL** |",
-    f"| **Supporting References** | 29 citations | 29 citations | 29 citations | **100% IDENTICAL** |",
-    f"| **Source IDs Mapped** | 2,042 lines | 2,042 lines | 2,042 lines | **100% IDENTICAL** |",
-    f"| **Extracted Pages / Lines** | 122 pages / 2,233 lines | 122 pages / 2,233 lines | 122 pages / 2,233 lines | **100% IDENTICAL** |",
+    f"| **Total Topics** | {len(t1)} | {len(t2)} | {len(t3)} | {status_str(count_match)} |",
+    f"| **Topic Labels** | {len(t1)} labels | {len(t2)} labels | {len(t3)} labels | {status_str(labels_match)} |",
+    f"| **Start Boundaries (Page:Line)** | {len(t1)} spans | {len(t2)} spans | {len(t3)} spans | {status_str(starts_match)} |",
+    f"| **End Boundaries (Page:Line)** | {len(t1)} spans | {len(t2)} spans | {len(t3)} spans | {status_str(ends_match)} |",
+    f"| **Supporting References** | {len(t1)} citations | {len(t2)} citations | {len(t3)} citations | {status_str(refs_match)} |",
+    f"| **Source IDs Mapped** | {sids_count1} lines | {sids_count2} lines | {sids_count3} lines | {status_str(sids_match)} |",
+    f"| **Extracted Pages / Lines** | {c1.get('total_pdf_pages')} pages / {c1.get('extracted_lines')} lines | {c2.get('total_pdf_pages')} pages / {c2.get('extracted_lines')} lines | {c3.get('total_pdf_pages')} pages / {c3.get('extracted_lines')} lines | {status_str(extracted_match)} |",
+
     "",
     "## SHA-256 Artifact Checksums",
     "",

@@ -271,8 +271,7 @@ def segment_topics(transcript: CanonicalTranscript, chunks: list[Chunk] | None =
         flush_current("new_topic")
         current = [i]
         if best_j >= 0 and best_sim >= RELATED_SIM:
-            actions[-1] = actions[-1]  # previous already flushed
-        # mark later during topic build
+            pass  # previous already flushed; mark later during topic build
 
     flush_current("new_topic")
     groups = _merge_chunk_groups(groups)

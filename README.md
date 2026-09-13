@@ -163,11 +163,12 @@ This matters because it's the same coordinate system a court reporter's own tran
 
 Provenance is enforced, not just asserted, by `src/provenance/validator.py::ProvenanceValidator`:
 
-- `loc_exists(page, line)` checks the boundary against the real canonical line index.
-- `validate_topic()` rejects a topic if its start doesn't exist, its end doesn't exist, start is after end, any `source_id` in the topic is unknown, or the topic's `supporting_evidence` text doesn't actually overlap with the words found in that page/line span (a lightweight token-overlap check, not just "the text was copied").
-- If a topic fails validation, `clamp_boundary()` snaps it to the nearest real line on the same page (or the nearest page if the page itself doesn't exist) and re-validates. If it still fails, the topic is **dropped**, not silently kept with a bad citation.
+- `loc_exists(page, line)` checks whether a given page/line boundary exists against the canonical line index.
+- `validate_topic()` is the **active validation gate** in the pipeline (`src/segmentation/topics.py`). It rejects any candidate topic if its start does not exist, its end does not exist, start is after end, any referenced `source_id` is unknown, or the `supporting_evidence` text does not overlap with the words in that transcript span.
+- Topics failing this active validation gate are **dropped** immediately from the index, guaranteeing that unverified or hallucinated boundaries never enter the output.
+- `validate_topics()` / `clamp_boundary()` exists in `src/provenance/validator.py` as a recovery helper to snap boundaries to the nearest real line, but is **not currently invoked by the active `segment_topics()` pipeline**. All candidate boundaries are constructed directly from real chunk lines and must pass `validate_topic()` on their own.
 
-In the current committed run, 29/29 generated topics pass validation with no boundary clamping needed (confirmed by `tests/test_committed_outputs.py::test_committed_topics_have_valid_source_ids_and_evidence`).
+In the current committed run, all 29/29 generated topics pass `validate_topic()` directly on the first pass with zero boundary clamping needed and zero dropped topics (confirmed by `tests/test_committed_outputs.py::test_committed_topics_have_valid_source_ids_and_evidence`).
 
 ## 7. Topic Segmentation Method
 

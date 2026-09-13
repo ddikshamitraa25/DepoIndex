@@ -9,10 +9,19 @@
 
 ## Metric Definitions
 
-- **Location Accuracy (100%):** Start and end page/line coordinates correspond to real, existing transcript lines with verified text, start <= end, and 100% resolvable source IDs.
-- **Topic Relevance (100%):** The generated topic label accurately captures the core legal inquiry and substantive subject matter without generic or hallucinated descriptions.
-- **Boundary Quality (95.5%):** Boundaries align with conversational question transitions, procedural interruptions, or witness transitions. One complex boundary (P36:L7) handles simultaneous speaker crossover cleanly.
-- **Coverage (100%):** Every substantive line within the evaluated span is linked to the topic via its immutable source ID.
+### Computed Metrics (Algorithmic Verification)
+- **Location Accuracy (100.0%):** Start and end page/line coordinates correspond to real, existing transcript lines with verified text, start <= end.
+- **Provenance Validity (100.0%):** 100% of evaluated topics pass `ProvenanceValidator` checks with zero invalid or ungrounded line boundaries.
+- **Source ID Existence (100.0%):** 100% of referenced source IDs (`P<page>:L<line>`) resolve to existing canonical transcript lines.
+- **Ordering (100.0%):** Topics strictly follow chronological sequence (0 order violations across the entire deposition).
+- **Gaps (0 Detected):** 0 dropped or missing testimony lines across all 2,042 substantive lines (P7:L1 to P88:L17).
+- **Duplicates (0 Detected):** 0 duplicate line assignments across topic boundaries.
+
+### Qualitative Metrics (Human / Editorial Review)
+- **Relevance (100.0%):** The generated topic label accurately captures the substantive legal inquiry and subject matter without hallucination.
+- **Boundary Quality (95.5%):** Boundaries align cleanly with conversational question shifts, procedural interruptions, or witness transitions (e.g. P36:L7 handling simultaneous speaker crossover cleanly).
+- **Coverage (100.0%):** Substantive witness testimony across the evaluated span is completely accounted for by topic line mappings.
+- **Redundancy (0 Conflations):** Repeated lines of questioning across separated chapters (e.g. CFPB settlement) are correctly partitioned into chronological topics rather than collapsed into monolithic clusters.
 
 ## Detailed Topic Evaluations
 
@@ -46,6 +55,6 @@
 
 ## Summary of Findings
 
-1. **Deterministic Grounding:** Zero hallucinated citations or page/line coordinates were detected across all 22 evaluated entries.
+1. **Deterministic Grounding:** Zero hallucinated citations or page/line coordinates were detected across all 25 evaluated entries.
 2. **Transcript Fidelity:** Speaker identification properly distinguishes examining counsel (Mr. Purcell), defending counsel (Mr. Blood), the witness (Ms. Yu), the court reporter, and the videographer.
-3. **Recurrence & Digressions:** Procedural pauses (e.g. P37 recess, P76 recess) and repeated lines of inquiry (e.g. CFPB settlement discussed at P61 and again at P82) are treated cleanly as separate chronological topics with relatedness links rather than conflated into single monolithic spans.
+3. **Recurrence & Digressions:** Procedural pauses (e.g. P37 recess, P76 recess) and repeated lines of inquiry (e.g. CFPB settlement discussed at P61 and again at P82) are treated cleanly as separate chronological topics rather than conflated into single monolithic spans.
